@@ -1,329 +1,587 @@
-import { useMemo } from "react";
-import FlowerEmoji, { getTheme } from "@/components/FlowerEmoji";
+// ══════════════════════════════════════════════════════
+//  FlowerEmoji — Botanical Sketch / Watercolour-Ink style
+//  Muted pastel palette, hand-drawn ink outlines,
+//  sketch strokes, cross-hatching, organic imperfection.
+// ══════════════════════════════════════════════════════
 
-interface BouquetArrangementProps {
-  flowers: string[];
-  size?: "sm" | "md" | "lg";
-  layoutSeed?: number;
-  greeneryStyle?: "classic" | "wild" | "eucalyptus";
+interface FlowerTheme {
+  name: string;
+  petal: string;
+  petalDark: string;
+  petalLight: string;
+  center: string;
+  centerDark: string;
+  ink: string;          // main ink outline colour
+  wash: string;         // watercolour wash (semi-transparent fill)
+  type: "rose" | "dahlia" | "anemone" | "daisy" | "sunflower" | "lily" | "tulip" | "lavender";
+  sizeCategory: "large" | "medium" | "small";
 }
 
-const sizeMap = {
-  sm: { container: "w-52 h-64",  flower: 52 },
-  md: { container: "w-72 h-80",  flower: 62 },
-  lg: { container: "w-80 h-96",  flower: 72 },
+// Muted botanical palette — dusty pinks, peach, cream, soft lavender
+const THEMES: Record<string, FlowerTheme> = {
+  roses: {
+    name: "Rose",
+    petal:      "hsl(350 42% 72%)",
+    petalDark:  "hsl(348 38% 54%)",
+    petalLight: "hsl(352 55% 88%)",
+    center:     "hsl(16 48% 52%)",
+    centerDark: "hsl(14 44% 36%)",
+    ink:        "hsl(345 30% 24%)",
+    wash:       "hsl(350 44% 80%)",
+    type: "rose", sizeCategory: "large",
+  },
+  dahlia: {
+    name: "Dahlia",
+    petal:      "hsl(18 52% 72%)",
+    petalDark:  "hsl(16 46% 54%)",
+    petalLight: "hsl(24 62% 88%)",
+    center:     "hsl(28 56% 46%)",
+    centerDark: "hsl(22 50% 32%)",
+    ink:        "hsl(18 32% 22%)",
+    wash:       "hsl(20 48% 82%)",
+    type: "dahlia", sizeCategory: "large",
+  },
+  anemone: {
+    name: "Anemone",
+    petal:      "hsl(310 32% 76%)",
+    petalDark:  "hsl(310 28% 58%)",
+    petalLight: "hsl(312 42% 90%)",
+    center:     "hsl(230 36% 28%)",
+    centerDark: "hsl(230 38% 18%)",
+    ink:        "hsl(310 22% 22%)",
+    wash:       "hsl(312 34% 84%)",
+    type: "anemone", sizeCategory: "medium",
+  },
+  daisies: {
+    name: "Daisy",
+    petal:      "hsl(48 38% 92%)",
+    petalDark:  "hsl(44 30% 76%)",
+    petalLight: "hsl(54 50% 97%)",
+    center:     "hsl(42 62% 56%)",
+    centerDark: "hsl(34 56% 38%)",
+    ink:        "hsl(40 24% 28%)",
+    wash:       "hsl(48 40% 92%)",
+    type: "daisy", sizeCategory: "small",
+  },
+  sunflowers: {
+    name: "Sunflower",
+    petal:      "hsl(44 68% 68%)",
+    petalDark:  "hsl(36 60% 50%)",
+    petalLight: "hsl(50 74% 84%)",
+    center:     "hsl(22 44% 26%)",
+    centerDark: "hsl(18 42% 16%)",
+    ink:        "hsl(32 34% 20%)",
+    wash:       "hsl(46 62% 78%)",
+    type: "sunflower", sizeCategory: "large",
+  },
+  lily: {
+    name: "Lily",
+    petal:      "hsl(34 44% 84%)",
+    petalDark:  "hsl(28 38% 66%)",
+    petalLight: "hsl(42 52% 94%)",
+    center:     "hsl(30 58% 54%)",
+    centerDark: "hsl(24 50% 36%)",
+    ink:        "hsl(28 28% 26%)",
+    wash:       "hsl(36 44% 88%)",
+    type: "lily", sizeCategory: "medium",
+  },
+  tulips: {
+    name: "Tulip",
+    petal:      "hsl(340 38% 72%)",
+    petalDark:  "hsl(338 32% 54%)",
+    petalLight: "hsl(344 48% 86%)",
+    center:     "hsl(336 34% 38%)",
+    centerDark: "hsl(334 32% 26%)",
+    ink:        "hsl(336 26% 22%)",
+    wash:       "hsl(342 38% 82%)",
+    type: "tulip", sizeCategory: "medium",
+  },
+  lavender: {
+    name: "Lavender",
+    petal:      "hsl(262 34% 72%)",
+    petalDark:  "hsl(260 28% 54%)",
+    petalLight: "hsl(266 44% 86%)",
+    center:     "hsl(258 32% 46%)",
+    centerDark: "hsl(256 30% 30%)",
+    ink:        "hsl(258 22% 24%)",
+    wash:       "hsl(264 36% 82%)",
+    type: "lavender", sizeCategory: "small",
+  },
 };
 
-const seeded = (seed: number, n: number) => {
-  const x = Math.sin(seed * 97.11 + n * 41.23) * 10000;
-  return x - Math.floor(x);
-};
+export const getTheme = (key: string) => THEMES[key] || THEMES.roses;
+export const getAllThemes = () => Object.entries(THEMES).map(([key, val]) => ({ key, ...val }));
+const uid = (base: string, seed: string) => `${base}-${seed.replace(/[^a-z0-9]/g, "")}`;
 
-// Dome-shaped slot positions — realistic bouquet arrangement
-// y goes from top (back flowers) downward (front flowers)
-// x is centered around 50%
-const ALL_SLOTS = [
-  // Crown — tallest, back center
-  { x: 50, y: 12, z: 10, tier: 0 },
-  // Second row
-  { x: 36, y: 18, z: 12, tier: 1 },
-  { x: 64, y: 18, z: 12, tier: 1 },
-  // Third row — widening dome
-  { x: 50, y: 24, z: 16, tier: 2 },
-  { x: 27, y: 26, z: 14, tier: 2 },
-  { x: 73, y: 26, z: 14, tier: 2 },
-  // Fourth row — front
-  { x: 38, y: 33, z: 22, tier: 3 },
-  { x: 62, y: 33, z: 22, tier: 3 },
-  // Fifth row — foreground
-  { x: 50, y: 40, z: 28, tier: 4 },
-  { x: 24, y: 36, z: 18, tier: 4 },
-  { x: 76, y: 36, z: 18, tier: 4 },
-];
+// ── Sketch helpers ──────────────────────────────────────
+// Adds tiny random-ish wobble to make paths look hand-drawn
+// (deterministic based on index so SSR-safe)
+const sketchOffset = (i: number, mag: number) =>
+  ((Math.sin(i * 137.5) * 0.5 + 0.5) - 0.5) * mag;
 
-const BouquetArrangement = ({
-  flowers,
-  size = "md",
-  layoutSeed = 7,
-  greeneryStyle = "classic",
-}: BouquetArrangementProps) => {
-  const positions = useMemo(() => {
-    if (!flowers.length) return [] as Array<{
-      x: number; y: number; rotate: number; scale: number; z: number; flower: string;
-    }>;
+// Cross-hatch lines inside a rough circle
+const CrossHatch = ({ r, ink, n = 6 }: { r: number; ink: string; n?: number }) => (
+  <g opacity={0.18}>
+    {Array.from({ length: n }).map((_, i) => {
+      const y = -r + (2 * r / (n - 1)) * i;
+      const hw = Math.sqrt(Math.max(0, r * r - y * y));
+      return (
+        <line key={i} x1={-hw + sketchOffset(i, 1.5)} y1={y + sketchOffset(i+1, 0.8)}
+          x2={hw + sketchOffset(i+2, 1.5)} y2={y + sketchOffset(i+3, 0.8)}
+          stroke={ink} strokeWidth={0.55} strokeLinecap="round"/>
+      );
+    })}
+  </g>
+);
 
-    // Sort: large flowers to center/crown, small to edges
-    const weighted = [...flowers].sort((a, b) => {
-      const w = { large: 3, medium: 2, small: 1 } as const;
-      return w[getTheme(b).sizeCategory] - w[getTheme(a).sizeCategory];
-    });
+// Sketch stroke overlay — wobbly lines radiating from centre
+const SketchStrokes = ({ r, n, ink }: { r: number; n: number; ink: string }) => (
+  <g opacity={0.14}>
+    {Array.from({ length: n }).map((_, i) => {
+      const a = (360 / n) * i;
+      const rad = (a * Math.PI) / 180;
+      const ox = sketchOffset(i * 3, 1.2), oy = sketchOffset(i * 3 + 1, 1.0);
+      return (
+        <line key={i}
+          x1={ox} y1={oy}
+          x2={Math.sin(rad) * r + ox} y2={-Math.cos(rad) * r + oy}
+          stroke={ink} strokeWidth={0.4} strokeLinecap="round"/>
+      );
+    })}
+  </g>
+);
 
-    return weighted.map((flower, i) => {
-      const slot = ALL_SLOTS[i % ALL_SLOTS.length];
-      const jitterX = (seeded(layoutSeed, i) - 0.5) * 5;
-      const jitterY = (seeded(layoutSeed + 13, i) - 0.5) * 3;
-      // Gentle tilt — back flowers more upright, front flowers tilt outward
-      const tiltBase = (slot.x - 50) * 0.3;
-      const rotate = tiltBase + (seeded(layoutSeed + 77, i) - 0.5) * 18;
-      // Back flowers slightly smaller (perspective), front larger
-      const scaleBase = slot.tier === 0 ? 1.0 : slot.tier === 1 ? 1.0 : slot.tier === 2 ? 1.05 : slot.tier === 3 ? 1.08 : 1.05;
-      const scaleJitter = (seeded(layoutSeed + 99, i) - 0.5) * 0.08;
-
-      return {
-        x: slot.x + jitterX,
-        y: slot.y + jitterY,
-        rotate,
-        scale: scaleBase + scaleJitter,
-        z: slot.z,
-        flower,
-      };
-    });
-  }, [flowers, layoutSeed]);
-
-  if (!flowers.length) return null;
-
-  // Compute how many stems to draw (one per flower, fanning from wrap point)
-  const stemCount = Math.min(flowers.length, 8);
-
+// ── Rose (botanical sketch) ─────────────────────────────
+const RoseFlower = ({ t, id }: { t: FlowerTheme; id: string }) => {
+  const pg = uid("rp", id);
   return (
-    <div className="flex flex-col items-center">
-      <div className={`${sizeMap[size].container} relative`}>
+    <g transform="translate(60 60)">
+      <defs>
+        <radialGradient id={pg} cx="35%" cy="28%" r="68%">
+          <stop offset="0%"   stopColor={t.petalLight} stopOpacity={0.92}/>
+          <stop offset="55%"  stopColor={t.wash}       stopOpacity={0.75}/>
+          <stop offset="100%" stopColor={t.petalDark}  stopOpacity={0.85}/>
+        </radialGradient>
+      </defs>
 
-        {/* ── Greenery layer (behind everything) ── */}
-        <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }}>
-          <svg viewBox="0 0 280 320" className="w-full h-full" aria-hidden>
-            <defs>
-              {/* Fern gradient */}
-              <linearGradient id="fern-g" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="hsl(138 42% 52%)" />
-                <stop offset="100%" stopColor="hsl(130 36% 32%)" />
-              </linearGradient>
-              {/* Eucalyptus gradient */}
-              <linearGradient id="euc-g" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="hsl(158 38% 58%)" />
-                <stop offset="100%" stopColor="hsl(152 30% 36%)" />
-              </linearGradient>
-            </defs>
+      {/* Outer petals — organic, uneven, slightly overlapping */}
+      {[0,42,87,130,175,218,263,308].map((a, i) => {
+        const ox = sketchOffset(i, 1.4), oy = sketchOffset(i+5, 1.2);
+        const len = 24 + sketchOffset(i*2, 3);
+        const wid = 9  + sketchOffset(i*3, 2);
+        return (
+          <g key={i} transform={`rotate(${a + sketchOffset(i, 4)})`}>
+            {/* Watercolour wash fill */}
+            <path d={`M${ox} ${oy} C-${wid} -${len*0.5} -${wid*0.7} -${len} ${ox} -${len-2+sketchOffset(i,2)} C${wid*0.7} -${len} ${wid} -${len*0.5} ${ox} ${oy}Z`}
+              fill={`url(#${pg})`} opacity={0.82}/>
+            {/* Ink outline — slightly wobbly */}
+            <path d={`M${ox} ${oy} C-${wid+ox} -${len*0.48} -${wid*0.65} -${len+oy} ${ox} -${len-1} C${wid*0.65+ox} -${len+oy} ${wid+ox} -${len*0.48} ${ox} ${oy}`}
+              fill="none" stroke={t.ink} strokeWidth={0.7 + sketchOffset(i, 0.3)} strokeLinecap="round"/>
+            {/* Petal midvein — sketch line */}
+            <line x1={ox} y1={-4} x2={ox + sketchOffset(i,1.5)} y2={-len+6}
+              stroke={t.ink} strokeWidth={0.35} opacity={0.35} strokeLinecap="round"/>
+          </g>
+        );
+      })}
 
-            {/* ── Stems fanning up from wrap point ── */}
-            <g stroke="hsl(132 30% 30%)" strokeWidth="2" fill="none" strokeLinecap="round">
-              <path d="M140 290 C132 240 110 180 72 100" opacity="0.9"/>
-              <path d="M140 290 C137 238 130 175 118 95" opacity="0.9"/>
-              <path d="M140 290 C140 235 140 170 140 85" opacity="0.9"/>
-              <path d="M140 290 C143 238 150 175 162 95" opacity="0.9"/>
-              <path d="M140 290 C148 240 170 180 208 100" opacity="0.9"/>
-              {stemCount >= 6 && <path d="M140 290 C126 238 96 178 58 115" opacity="0.8"/>}
-              {stemCount >= 7 && <path d="M140 290 C154 238 184 178 222 115" opacity="0.8"/>}
-              {stemCount >= 8 && <path d="M140 290 C140 237 138 180 130 108" opacity="0.7"/>}
-            </g>
+      {/* Mid petals */}
+      {[20, 78, 138, 198, 258, 318].map((a, i) => (
+        <g key={i} transform={`rotate(${a + sketchOffset(i+8, 5)})`}>
+          <path d={`M0 0 C-7 -${12+sketchOffset(i,2)} -6 -${21+sketchOffset(i+1,2)} 0 -${19+sketchOffset(i,1.5)} C6 -${21+sketchOffset(i+1,2)} 7 -${12+sketchOffset(i,2)} 0 0Z`}
+            fill={t.wash} stroke={t.ink} strokeWidth={0.65} opacity={0.78}/>
+          <line x1={0} y1={-3} x2={sketchOffset(i,1)} y2={-16}
+            stroke={t.ink} strokeWidth={0.3} opacity={0.3}/>
+        </g>
+      ))}
 
-            {/* ── Classic: elegant ruscus + fern fronds ── */}
-            {greeneryStyle === "classic" && (
-              <g opacity="0.88">
-                {/* Left large frond */}
-                <g stroke="hsl(136 34% 36%)" strokeWidth="1" fill="none">
-                  <path d="M100 175 C80 155 60 130 48 100" strokeWidth="1.4"/>
-                  {/* Leaflets along frond */}
-                  {[[96,168,-30],[88,155,-25],[78,142,-20],[68,128,-18],[58,114,-15]].map(([x,y,r],i)=>(
-                    <ellipse key={i} cx={x} cy={y} rx={8} ry={4}
-                      fill="hsl(136 38% 40%)" stroke="none" opacity={0.7}
-                      transform={`rotate(${r} ${x} ${y})`} />
-                  ))}
-                  {[[104,168,30],[98,157,28],[90,145,24],[80,130,20],[70,116,16]].map(([x,y,r],i)=>(
-                    <ellipse key={i} cx={x} cy={y} rx={8} ry={4}
-                      fill="hsl(138 40% 44%)" stroke="none" opacity={0.65}
-                      transform={`rotate(${r} ${x} ${y})`} />
-                  ))}
-                </g>
-                {/* Right large frond */}
-                <g stroke="hsl(136 34% 36%)" strokeWidth="1" fill="none">
-                  <path d="M180 175 C200 155 220 130 232 100" strokeWidth="1.4"/>
-                  {[[184,168,30],[192,155,25],[202,142,20],[212,128,18],[222,114,15]].map(([x,y,r],i)=>(
-                    <ellipse key={i} cx={x} cy={y} rx={8} ry={4}
-                      fill="hsl(136 38% 40%)" stroke="none" opacity={0.7}
-                      transform={`rotate(${r} ${x} ${y})`} />
-                  ))}
-                  {[[176,168,-30],[182,157,-28],[190,145,-24],[200,130,-20],[210,116,-16]].map(([x,y,r],i)=>(
-                    <ellipse key={i} cx={x} cy={y} rx={8} ry={4}
-                      fill="hsl(138 40% 44%)" stroke="none" opacity={0.65}
-                      transform={`rotate(${r} ${x} ${y})`} />
-                  ))}
-                </g>
-                {/* Center upright frond */}
-                <g>
-                  <path d="M140 200 C140 170 140 140 140 100" stroke="hsl(136 34% 36%)" strokeWidth="1.4" fill="none"/>
-                  {[[132,185,-8],[148,185,8],[130,165,-12],[150,165,12],[132,148,-10],[148,148,10]].map(([x,y,r],i)=>(
-                    <ellipse key={i} cx={x} cy={y} rx={7} ry={3.5}
-                      fill="hsl(137 40% 42%)" stroke="none" opacity={0.7}
-                      transform={`rotate(${r} ${x} ${y})`} />
-                  ))}
-                </g>
-                {/* Accent small leaves */}
-                <ellipse cx="70" cy="148" rx="10" ry="5" fill="hsl(135 36% 44%)" opacity="0.6" transform="rotate(-35 70 148)"/>
-                <ellipse cx="210" cy="148" rx="10" ry="5" fill="hsl(135 36% 44%)" opacity="0.6" transform="rotate(35 210 148)"/>
-                <ellipse cx="100" cy="118" rx="9" ry="4" fill="hsl(138 38% 46%)" opacity="0.55" transform="rotate(-20 100 118)"/>
-                <ellipse cx="180" cy="118" rx="9" ry="4" fill="hsl(138 38% 46%)" opacity="0.55" transform="rotate(20 180 118)"/>
-              </g>
-            )}
+      {/* Inner bud petals */}
+      {[0, 55, 115, 175, 235, 295].map((a, i) => (
+        <path key={i}
+          d={`M0 0 C-${4+sketchOffset(i,1)} -${7+sketchOffset(i,1.5)} -4 -${13+sketchOffset(i,1)} 0 -${11+sketchOffset(i,1)} C4 -${13+sketchOffset(i,1)} ${4+sketchOffset(i,1)} -${7+sketchOffset(i,1.5)} 0 0Z`}
+          fill={t.petalLight} stroke={t.ink} strokeWidth={0.55} opacity={0.88}
+          transform={`rotate(${a + sketchOffset(i, 5)})`}/>
+      ))}
 
-            {/* ── Wild: baby's breath + loose foliage ── */}
-            {greeneryStyle === "wild" && (
-              <g opacity="0.9">
-                {/* Broad outer leaves */}
-                <ellipse cx="52" cy="145" rx="18" ry="8" fill="hsl(128 38% 36%)" opacity="0.65" transform="rotate(-42 52 145)"/>
-                <ellipse cx="228" cy="145" rx="18" ry="8" fill="hsl(128 38% 36%)" opacity="0.65" transform="rotate(42 228 145)"/>
-                <ellipse cx="72" cy="112" rx="15" ry="7" fill="hsl(130 40% 40%)" opacity="0.6" transform="rotate(-28 72 112)"/>
-                <ellipse cx="208" cy="112" rx="15" ry="7" fill="hsl(130 40% 40%)" opacity="0.6" transform="rotate(28 208 112)"/>
-                <ellipse cx="96" cy="92" rx="12" ry="5" fill="hsl(132 38% 42%)" opacity="0.55" transform="rotate(-14 96 92)"/>
-                <ellipse cx="184" cy="92" rx="12" ry="5" fill="hsl(132 38% 42%)" opacity="0.55" transform="rotate(14 184 92)"/>
-
-                {/* Baby's breath — clusters of tiny white florets */}
-                {[
-                  [62,130],[80,108],[50,118],[100,100],[118,88],
-                  [162,88],[180,100],[200,108],[218,118],[240,130],
-                  [130,78],[150,78],[140,72],
-                ].map(([cx, cy], i) => (
-                  <g key={i} transform={`translate(${cx} ${cy})`}>
-                    {[0,72,144,216,288].map((a, j) => {
-                      const rad = (a * Math.PI) / 180;
-                      return (
-                        <circle key={j}
-                          cx={Math.cos(rad) * 4} cy={Math.sin(rad) * 4}
-                          r={2.2} fill="hsl(0 0% 97%)" opacity={0.85} />
-                      );
-                    })}
-                    <circle cx={0} cy={0} r={2} fill="hsl(60 40% 90%)" opacity={0.9} />
-                    {/* Tiny stem to floret cluster */}
-                    <line x1={0} y1={0} x2={0} y2={8}
-                      stroke="hsl(130 28% 42%)" strokeWidth={0.7} opacity={0.6} />
-                  </g>
-                ))}
-
-                {/* Wispy secondary stems */}
-                <path d="M140 290 C120 250 88 200 60 160" stroke="hsl(130 28% 38%)" strokeWidth="1" fill="none" opacity="0.5" strokeDasharray="2 3"/>
-                <path d="M140 290 C160 250 192 200 220 160" stroke="hsl(130 28% 38%)" strokeWidth="1" fill="none" opacity="0.5" strokeDasharray="2 3"/>
-              </g>
-            )}
-
-            {/* ── Eucalyptus: round coin leaves on arching branches ── */}
-            {greeneryStyle === "eucalyptus" && (
-              <g opacity="0.88">
-                {/* Left arching branch */}
-                <path d="M120 250 C100 210 72 172 48 130"
-                  stroke="hsl(158 26% 38%)" strokeWidth="2" fill="none" strokeLinecap="round"/>
-                {/* Right arching branch */}
-                <path d="M160 250 C180 210 208 172 232 130"
-                  stroke="hsl(158 26% 38%)" strokeWidth="2" fill="none" strokeLinecap="round"/>
-                {/* Left sub-branch */}
-                <path d="M92 192 C78 175 62 158 52 140"
-                  stroke="hsl(158 26% 38%)" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
-                {/* Right sub-branch */}
-                <path d="M188 192 C202 175 218 158 228 140"
-                  stroke="hsl(158 26% 38%)" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
-
-                {/* Left branch coin leaves — pairs along stem */}
-                {[[78,240],[68,218],[60,196],[52,174],[46,152],[42,132]].map(([x,y],i)=>(
-                  <g key={i}>
-                    <ellipse cx={x-8} cy={y} rx={9} ry={7}
-                      fill="hsl(158 32% 46%)" stroke="hsl(156 26% 36%)" strokeWidth={0.7}
-                      opacity={0.75} transform={`rotate(-${10+i*3} ${x-8} ${y})`}/>
-                    <ellipse cx={x+8} cy={y-4} rx={9} ry={7}
-                      fill="hsl(160 36% 50%)" stroke="hsl(156 26% 36%)" strokeWidth={0.7}
-                      opacity={0.7} transform={`rotate(${8+i*3} ${x+8} ${y-4})`}/>
-                    {/* Vein lines */}
-                    <line x1={x-8} y1={y-4} x2={x-8} y2={y+4}
-                      stroke="hsl(158 26% 36%)" strokeWidth={0.5} opacity={0.4}
-                      transform={`rotate(-${10+i*3} ${x-8} ${y})`}/>
-                  </g>
-                ))}
-
-                {/* Right branch coin leaves */}
-                {[[202,240],[212,218],[220,196],[228,174],[234,152],[238,132]].map(([x,y],i)=>(
-                  <g key={i}>
-                    <ellipse cx={x+8} cy={y} rx={9} ry={7}
-                      fill="hsl(158 32% 46%)" stroke="hsl(156 26% 36%)" strokeWidth={0.7}
-                      opacity={0.75} transform={`rotate(${10+i*3} ${x+8} ${y})`}/>
-                    <ellipse cx={x-8} cy={y-4} rx={9} ry={7}
-                      fill="hsl(160 36% 50%)" stroke="hsl(156 26% 36%)" strokeWidth={0.7}
-                      opacity={0.7} transform={`rotate(-${8+i*3} ${x-8} ${y-4})`}/>
-                    <line x1={x+8} y1={y-4} x2={x+8} y2={y+4}
-                      stroke="hsl(158 26% 36%)" strokeWidth={0.5} opacity={0.4}
-                      transform={`rotate(${10+i*3} ${x+8} ${y})`}/>
-                  </g>
-                ))}
-
-                {/* Top center sprigs */}
-                <path d="M140 190 C136 165 132 140 128 112"
-                  stroke="hsl(158 26% 38%)" strokeWidth="1.4" fill="none" strokeLinecap="round"/>
-                <path d="M140 190 C144 165 148 140 152 112"
-                  stroke="hsl(158 26% 38%)" strokeWidth="1.4" fill="none" strokeLinecap="round"/>
-                {[[130,178],[126,160],[124,143],[122,126]].map(([x,y],i)=>(
-                  <ellipse key={i} cx={x} cy={y} rx={8} ry={6}
-                    fill="hsl(158 34% 48%)" stroke="hsl(156 26% 36%)" strokeWidth={0.6}
-                    opacity={0.7} transform={`rotate(-12 ${x} ${y})`}/>
-                ))}
-                {[[150,178],[154,160],[156,143],[158,126]].map(([x,y],i)=>(
-                  <ellipse key={i} cx={x} cy={y} rx={8} ry={6}
-                    fill="hsl(160 36% 50%)" stroke="hsl(156 26% 36%)" strokeWidth={0.6}
-                    opacity={0.7} transform={`rotate(12 ${x} ${y})`}/>
-                ))}
-
-                {/* Silver-blue highlight veins on some leaves */}
-                {[[62,196],[220,196],[128,143]].map(([x,y],i)=>(
-                  <ellipse key={i} cx={x} cy={y} rx={4} ry={3}
-                    fill="hsl(175 40% 72%)" opacity={0.25} />
-                ))}
-              </g>
-            )}
-          </svg>
-        </div>
-
-        {/* ── Flowers ── */}
-        {positions.map((pos, i) => (
-          <div
-            key={`${pos.flower}-${i}`}
-            className="absolute"
-            style={{
-              left: `${pos.x}%`,
-              top: `${pos.y}%`,
-              transform: `translate(-50%, -50%) rotate(${pos.rotate}deg) scale(${pos.scale})`,
-              zIndex: pos.z + 2,
-            }}
-          >
-            <FlowerEmoji theme={pos.flower} size={sizeMap[size].flower} />
-          </div>
-        ))}
-
-        {/* ── Wrap / bow at base ── */}
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2" style={{ zIndex: 40 }}>
-          <svg width="90" height="80" viewBox="0 0 90 80" aria-hidden>
-            <defs>
-              <linearGradient id="wrap-g" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="hsl(var(--muted))" />
-                <stop offset="100%" stopColor="hsl(var(--muted) / 0.6)" />
-              </linearGradient>
-            </defs>
-            {/* Main cone wrap */}
-            <path d="M14 4 L45 74 L76 4 Z"
-              fill="url(#wrap-g)" stroke="hsl(var(--border))" strokeWidth="1.2" />
-            {/* Wrap fold crease */}
-            <path d="M28 4 L45 74 L62 4"
-              fill="none" stroke="hsl(var(--border))" strokeWidth="0.7" opacity="0.4"/>
-            {/* Ribbon band */}
-            <path d="M14 26 Q45 32 76 26"
-              fill="none" stroke="hsl(var(--foreground) / 0.2)" strokeWidth="2" strokeLinecap="round"/>
-            {/* Bow loops */}
-            <path d="M36 26 C28 18 20 14 24 20 C27 24 34 26 36 26Z"
-              fill="hsl(var(--foreground) / 0.12)" stroke="hsl(var(--foreground) / 0.2)" strokeWidth="0.8"/>
-            <path d="M54 26 C62 18 70 14 66 20 C63 24 56 26 54 26Z"
-              fill="hsl(var(--foreground) / 0.12)" stroke="hsl(var(--foreground) / 0.2)" strokeWidth="0.8"/>
-            <circle cx="45" cy="26" r="3" fill="hsl(var(--foreground) / 0.2)" />
-          </svg>
-        </div>
-
-      </div>
-    </div>
+      {/* Centre — sepal/stigma with sketch dots */}
+      <circle cx={sketchOffset(1,1)} cy={sketchOffset(2,1)} r={5.5}
+        fill={t.center} stroke={t.ink} strokeWidth={0.8} opacity={0.9}/>
+      <CrossHatch r={5} ink={t.ink} n={5}/>
+      {/* Stamens dots */}
+      {[0,60,120,180,240,300].map((a,i) => {
+        const rad = a * Math.PI / 180;
+        return <circle key={i} cx={Math.sin(rad)*3.5} cy={-Math.cos(rad)*3.5}
+          r={0.8} fill={t.centerDark} opacity={0.7}/>;
+      })}
+    </g>
   );
 };
 
-export default BouquetArrangement;
+// ── Dahlia (botanical sketch) ───────────────────────────
+const DahliaFlower = ({ t, id }: { t: FlowerTheme; id: string }) => {
+  const pg = uid("dp", id);
+  return (
+    <g transform="translate(60 60)">
+      <defs>
+        <linearGradient id={pg} x1="0%" y1="0%" x2="40%" y2="100%">
+          <stop offset="0%"   stopColor={t.petalLight} stopOpacity={0.9}/>
+          <stop offset="100%" stopColor={t.petalDark}  stopOpacity={0.85}/>
+        </linearGradient>
+      </defs>
+      {/* Outer 18 petals — slightly uneven lengths */}
+      {Array.from({ length: 18 }).map((_, i) => {
+        const len = 28 + sketchOffset(i * 2, 3);
+        const w   =  4 + sketchOffset(i * 3, 1);
+        return (
+          <g key={i} transform={`rotate(${(360/18)*i + sketchOffset(i,3)})`}>
+            <path d={`M-${w} 0 C-${w+1} -${len*0.4} -${w*0.6} -${len} 0 -${len-1+sketchOffset(i,2)} C${w*0.6} -${len} ${w+1} -${len*0.4} ${w} 0Z`}
+              fill={`url(#${pg})`} opacity={0.84}/>
+            <path d={`M-${w} 0 C-${w+1.5} -${len*0.38} -${w*0.5} -${len+1} 0 -${len} C${w*0.5} -${len+1} ${w+1.5} -${len*0.38} ${w} 0`}
+              fill="none" stroke={t.ink} strokeWidth={0.6} strokeLinecap="round"/>
+            <line x1={0} y1={-2} x2={sketchOffset(i,0.8)} y2={-len+4}
+              stroke={t.ink} strokeWidth={0.3} opacity={0.28}/>
+          </g>
+        );
+      })}
+      {/* Mid 12 petals */}
+      {Array.from({ length: 12 }).map((_, i) => {
+        const len = 20 + sketchOffset(i, 2);
+        return (
+          <g key={i} transform={`rotate(${(360/12)*i + 15 + sketchOffset(i,4)})`}>
+            <path d={`M-3.5 0 C-4.5 -${len*0.4} -3 -${len} 0 -${len-1} C3 -${len} 4.5 -${len*0.4} 3.5 0Z`}
+              fill={t.wash} stroke={t.ink} strokeWidth={0.55} opacity={0.82}/>
+          </g>
+        );
+      })}
+      {/* Inner 8 petals */}
+      {Array.from({ length: 8 }).map((_, i) => (
+        <g key={i} transform={`rotate(${(360/8)*i + sketchOffset(i,6)})`}>
+          <path d={`M-2.5 0 C-3 -6 -2 -13 0 -12 C2 -13 3 -6 2.5 0Z`}
+            fill={t.petalLight} stroke={t.ink} strokeWidth={0.5} opacity={0.9}/>
+        </g>
+      ))}
+      {/* Centre disc */}
+      <circle cx={0} cy={0} r={7.5} fill={t.center} stroke={t.ink} strokeWidth={0.85}/>
+      <CrossHatch r={6.5} ink={t.ink} n={7}/>
+      <circle cx={-1.5} cy={-1.5} r={2.2} fill={t.petalLight} opacity={0.28}/>
+    </g>
+  );
+};
+
+// ── Anemone (botanical sketch) ──────────────────────────
+const AnemoneFlower = ({ t, id }: { t: FlowerTheme; id: string }) => {
+  const pg = uid("ap", id);
+  return (
+    <g transform="translate(60 60)">
+      <defs>
+        <radialGradient id={pg} cx="46%" cy="20%" r="80%">
+          <stop offset="0%"   stopColor={t.petalLight} stopOpacity={0.88}/>
+          <stop offset="70%"  stopColor={t.wash}       stopOpacity={0.78}/>
+          <stop offset="100%" stopColor={t.petalDark}  stopOpacity={0.82}/>
+        </radialGradient>
+      </defs>
+      {/* 5 broad petals with veining and organic edges */}
+      {Array.from({ length: 5 }).map((_, i) => (
+        <g key={i} transform={`rotate(${72*i + sketchOffset(i,5)})`}>
+          {/* Wash fill */}
+          <path d={`M0 0 C-${16+sketchOffset(i,2)} -${13+sketchOffset(i,1.5)} -${17+sketchOffset(i,1.5)} -${28+sketchOffset(i,2)} 0 -${27+sketchOffset(i,1.5)} C${17+sketchOffset(i,1.5)} -${28+sketchOffset(i,2)} ${16+sketchOffset(i,2)} -${13+sketchOffset(i,1.5)} 0 0Z`}
+            fill={`url(#${pg})`} opacity={0.88}/>
+          {/* Ink outline */}
+          <path d={`M${sketchOffset(i,1)} 0 C-${15+sketchOffset(i,2)} -${12} -${17} -${27+sketchOffset(i,2)} ${sketchOffset(i*2,1.5)} -${26} C${17} -${27+sketchOffset(i,2)} ${15+sketchOffset(i,2)} -${12} ${sketchOffset(i,1)} 0`}
+            fill="none" stroke={t.ink} strokeWidth={0.8} strokeLinecap="round"/>
+          {/* 3 veins per petal */}
+          <line x1={0} y1={-4} x2={sketchOffset(i,1.5)} y2={-23} stroke={t.ink} strokeWidth={0.4} opacity={0.32}/>
+          <line x1={0} y1={-6} x2={-7+sketchOffset(i,1)} y2={-20} stroke={t.ink} strokeWidth={0.28} opacity={0.22}/>
+          <line x1={0} y1={-6} x2={ 7+sketchOffset(i,1)} y2={-20} stroke={t.ink} strokeWidth={0.28} opacity={0.22}/>
+        </g>
+      ))}
+      {/* Dark velvety centre disc */}
+      <circle cx={sketchOffset(2,1)} cy={sketchOffset(3,1)} r={13}
+        fill={t.center} stroke={t.ink} strokeWidth={0.9} opacity={0.92}/>
+      <CrossHatch r={11} ink="hsl(0 0% 100%)" n={8}/>
+      {/* Stamen ring */}
+      {Array.from({ length: 24 }).map((_, i) => {
+        const a = (360/24)*i; const rad = a * Math.PI / 180;
+        return (
+          <g key={i}>
+            <line x1={Math.sin(rad)*5} y1={-Math.cos(rad)*5}
+              x2={Math.sin(rad)*10.5} y2={-Math.cos(rad)*10.5}
+              stroke="hsl(260 40% 72%)" strokeWidth={0.65}/>
+            <circle cx={Math.sin(rad)*10.5} cy={-Math.cos(rad)*10.5}
+              r={1.4} fill="hsl(260 50% 82%)" opacity={0.9}/>
+          </g>
+        );
+      })}
+      <circle cx={0} cy={0} r={3.5} fill={t.centerDark} opacity={0.7}/>
+    </g>
+  );
+};
+
+// ── Daisy (botanical sketch) ────────────────────────────
+const DaisyFlower = ({ t, id }: { t: FlowerTheme; id: string }) => {
+  return (
+    <g transform="translate(60 60)">
+      {/* 16 ray petals — varying lengths, organic */}
+      {Array.from({ length: 16 }).map((_, i) => {
+        const len = 20 + sketchOffset(i * 2, 4);
+        const w   =  4 + sketchOffset(i * 3, 1.2);
+        return (
+          <g key={i} transform={`rotate(${(360/16)*i + sketchOffset(i, 3)})`}>
+            {/* Wash fill */}
+            <ellipse cx={sketchOffset(i,0.8)} cy={-(len/2+2)} rx={w} ry={len/2+1}
+              fill={t.wash} opacity={0.80}/>
+            {/* Ink outline */}
+            <path d={`M-${w} -2 C-${w+1} -${len*0.4} -${w*0.6} -${len+1} ${sketchOffset(i,1.2)} -${len} C${w*0.6} -${len+1} ${w+1} -${len*0.4} ${w} -2`}
+              fill="none" stroke={t.ink} strokeWidth={0.65} strokeLinecap="round"/>
+            {/* Midvein */}
+            <line x1={sketchOffset(i,0.6)} y1={-3} x2={sketchOffset(i,1.2)} y2={-len+3}
+              stroke={t.ink} strokeWidth={0.32} opacity={0.30}/>
+          </g>
+        );
+      })}
+      {/* Domed centre — warm ochre */}
+      <circle cx={sketchOffset(1,1.5)} cy={sketchOffset(2,1.5)} r={12}
+        fill={t.center} stroke={t.ink} strokeWidth={0.9}/>
+      <CrossHatch r={10.5} ink={t.ink} n={8}/>
+      {/* Floret dots — two rings */}
+      {Array.from({ length: 16 }).map((_, i) => {
+        const a = (360/16)*i, rad = a * Math.PI / 180;
+        return <circle key={i} cx={Math.sin(rad)*7.5} cy={-Math.cos(rad)*7.5}
+          r={1.0} fill={t.centerDark} opacity={0.45}/>;
+      })}
+      {Array.from({ length: 9 }).map((_, i) => {
+        const a = (360/9)*i, rad = a * Math.PI / 180;
+        return <circle key={i} cx={Math.sin(rad)*3.8} cy={-Math.cos(rad)*3.8}
+          r={0.85} fill={t.centerDark} opacity={0.38}/>;
+      })}
+      <circle cx={0} cy={0} r={2} fill={t.petalLight} opacity={0.4}/>
+    </g>
+  );
+};
+
+// ── Sunflower (botanical sketch) ────────────────────────
+const SunflowerFlower = ({ t, id }: { t: FlowerTheme; id: string }) => {
+  const pg = uid("sp", id);
+  return (
+    <g transform="translate(60 60)">
+      <defs>
+        <linearGradient id={pg} x1="0%" y1="0%" x2="50%" y2="100%">
+          <stop offset="0%"   stopColor={t.petalLight} stopOpacity={0.9}/>
+          <stop offset="100%" stopColor={t.petalDark}  stopOpacity={0.85}/>
+        </linearGradient>
+      </defs>
+      {/* 20 ray petals — drooping slightly, organic */}
+      {Array.from({ length: 20 }).map((_, i) => {
+        const len = 30 + sketchOffset(i * 2, 4);
+        const w   =  5 + sketchOffset(i * 3, 1.5);
+        const droop = sketchOffset(i, 3);
+        return (
+          <g key={i} transform={`rotate(${(360/20)*i + sketchOffset(i, 2)})`}>
+            <path d={`M-${w} -2 C-${w+2} -${len*0.35} ${droop} -${len+1} ${sketchOffset(i,1.2)} -${len} C${w*0.8} -${len+1} ${w+2} -${len*0.35} ${w} -2`}
+              fill={`url(#${pg})`} opacity={0.86}/>
+            <path d={`M-${w} -2 C-${w+2.5} -${len*0.33} ${droop-1} -${len+2} ${sketchOffset(i,1)} -${len-1} C${w*0.8+1} -${len+2} ${w+2.5} -${len*0.33} ${w} -2`}
+              fill="none" stroke={t.ink} strokeWidth={0.7} strokeLinecap="round"/>
+            <line x1={sketchOffset(i,0.8)} y1={-3} x2={sketchOffset(i,1.5)+droop*0.3} y2={-len+5}
+              stroke={t.ink} strokeWidth={0.35} opacity={0.28}/>
+          </g>
+        );
+      })}
+      {/* Inner petal ring — offset */}
+      {Array.from({ length: 13 }).map((_, i) => (
+        <g key={i} transform={`rotate(${(360/13)*i + 9 + sketchOffset(i,5)})`}>
+          <path d={`M-4 -2 C-5 -12 -3.5 -22 0 -20 C3.5 -22 5 -12 4 -2Z`}
+            fill={t.wash} stroke={t.ink} strokeWidth={0.55} opacity={0.65}/>
+        </g>
+      ))}
+      {/* Large dark seed disc */}
+      <circle cx={0} cy={0} r={20} fill={t.center} stroke={t.ink} strokeWidth={1.1}/>
+      {/* Fibonacci seed pattern */}
+      {Array.from({ length: 34 }).map((_, i) => {
+        const a = i * 137.5, rad = a * Math.PI / 180;
+        const r = Math.sqrt(i) * 3.2;
+        if (r > 18) return null;
+        return <ellipse key={i} cx={Math.sin(rad)*r} cy={-Math.cos(rad)*r}
+          rx={1.6} ry={1.1} fill={t.centerDark} opacity={0.55}
+          transform={`rotate(${a} ${Math.sin(rad)*r} ${-Math.cos(rad)*r})`}/>;
+      })}
+      <CrossHatch r={18} ink="hsl(30 30% 60%)" n={10}/>
+      <circle cx={-4} cy={-4} r={5} fill="hsl(30 40% 40%)" opacity={0.18}/>
+    </g>
+  );
+};
+
+// ── Lily (botanical sketch) ─────────────────────────────
+const LilyFlower = ({ t, id }: { t: FlowerTheme; id: string }) => {
+  return (
+    <g transform="translate(60 60)">
+      {/* 6 recurved petals — asymmetric */}
+      {Array.from({ length: 6 }).map((_, i) => {
+        const a = 60*i + sketchOffset(i, 6);
+        const len = 34 + sketchOffset(i, 3);
+        const w   = 12 + sketchOffset(i, 2);
+        return (
+          <g key={i} transform={`rotate(${a})`}>
+            <path d={`M0 0 C-${w} -${len*0.42} -${w*0.9} -${len} 0 -${len+1} C${w*0.9} -${len} ${w} -${len*0.42} 0 0Z`}
+              fill={t.wash} opacity={0.82}/>
+            <path d={`M${sketchOffset(i,1)} 0 C-${w+1} -${len*0.40} -${w*0.8} -${len+2} ${sketchOffset(i,1.5)} -${len} C${w*0.8} -${len+2} ${w+1} -${len*0.40} ${sketchOffset(i,1)} 0`}
+              fill="none" stroke={t.ink} strokeWidth={0.75} strokeLinecap="round"/>
+            {/* Midvein */}
+            <line x1={sketchOffset(i,0.8)} y1={-3} x2={sketchOffset(i,1.5)} y2={-len+5}
+              stroke={t.ink} strokeWidth={0.45} opacity={0.38}/>
+            {/* Freckle spots — 4 per petal */}
+            {[12,18,24,28].map((d, j) => (
+              <circle key={j} cx={sketchOffset(i*4+j, 3.5)} cy={-d}
+                r={1.2} fill={t.center} opacity={0.48}/>
+            ))}
+          </g>
+        );
+      })}
+      {/* 6 long curving stamens */}
+      {Array.from({ length: 6 }).map((_, i) => {
+        const a = (60*i) * Math.PI/180;
+        const ex = Math.sin(a)*20 + sketchOffset(i, 2);
+        const ey = -Math.cos(a)*20 + sketchOffset(i+1, 2);
+        return (
+          <g key={i}>
+            <path d={`M${sketchOffset(i,1)} ${sketchOffset(i+1,1)} Q${ex*0.5+sketchOffset(i,2)} ${ey*0.5} ${ex} ${ey}`}
+              fill="none" stroke={t.ink} strokeWidth={0.8} strokeLinecap="round"/>
+            <ellipse cx={ex} cy={ey} rx={2.8} ry={1.5}
+              fill={t.center} stroke={t.ink} strokeWidth={0.45}
+              transform={`rotate(${60*i} ${ex} ${ey})`}/>
+          </g>
+        );
+      })}
+      <circle cx={0} cy={0} r={3.5} fill={t.centerDark} stroke={t.ink} strokeWidth={0.6}/>
+    </g>
+  );
+};
+
+// ── Tulip (botanical sketch) ────────────────────────────
+const TulipFlower = ({ t, id }: { t: FlowerTheme; id: string }) => {
+  const pg = uid("tp", id);
+  return (
+    <g transform="translate(60 66)">
+      <defs>
+        <linearGradient id={pg} x1="0%" y1="0%" x2="60%" y2="100%">
+          <stop offset="0%"   stopColor={t.petalLight} stopOpacity={0.9}/>
+          <stop offset="100%" stopColor={t.petalDark}  stopOpacity={0.85}/>
+        </linearGradient>
+      </defs>
+      {/* 3 outer petals */}
+      {[0, 118, 242].map((a, i) => (
+        <g key={i} transform={`rotate(${a + sketchOffset(i, 6)})`}>
+          <path d={`M0 -6 C-${14+sketchOffset(i,2)} -${20+sketchOffset(i,2)} -${16+sketchOffset(i,1.5)} -${34+sketchOffset(i,2)} -${9+sketchOffset(i,1)} -${42+sketchOffset(i,1.5)} C-${3} -${48+sketchOffset(i,1)} ${3} -${48+sketchOffset(i,1)} ${9+sketchOffset(i,1)} -${42+sketchOffset(i,1.5)} C${16+sketchOffset(i,1.5)} -${34+sketchOffset(i,2)} ${14+sketchOffset(i,2)} -${20+sketchOffset(i,2)} 0 -6Z`}
+            fill={`url(#${pg})`} opacity={0.87}/>
+          <path d={`M${sketchOffset(i,1)} -6 C-${13+sketchOffset(i,2)} -${19} -${15+sketchOffset(i,1.5)} -${33} -${8+sketchOffset(i,1)} -${41} C-2 -${47} 2 -${47} ${8+sketchOffset(i,1)} -${41} C${15+sketchOffset(i,1.5)} -${33} ${13+sketchOffset(i,2)} -${19} ${sketchOffset(i,1)} -6`}
+            fill="none" stroke={t.ink} strokeWidth={0.8} strokeLinecap="round"/>
+          {/* Highlight stripe */}
+          <line x1={sketchOffset(i,0.6)} y1={-10} x2={sketchOffset(i,1)} y2={-38}
+            stroke={t.petalLight} strokeWidth={1.2} opacity={0.3} strokeLinecap="round"/>
+          <line x1={sketchOffset(i,0.4)} y1={-10} x2={sketchOffset(i,0.8)} y2={-38}
+            stroke={t.ink} strokeWidth={0.35} opacity={0.22}/>
+        </g>
+      ))}
+      {/* 3 inner petals — narrower */}
+      {[59, 178, 300].map((a, i) => (
+        <g key={i} transform={`rotate(${a + sketchOffset(i+3, 5)})`}>
+          <path d={`M0 -5 C-${10+sketchOffset(i,1.5)} -${17+sketchOffset(i,2)} -${11+sketchOffset(i,1)} -${30+sketchOffset(i,1.5)} -${6+sketchOffset(i,1)} -${37+sketchOffset(i,1)} C-1 -${42+sketchOffset(i,1)} 1 -${42+sketchOffset(i,1)} ${6+sketchOffset(i,1)} -${37+sketchOffset(i,1)} C${11+sketchOffset(i,1)} -${30+sketchOffset(i,1.5)} ${10+sketchOffset(i,1.5)} -${17+sketchOffset(i,2)} 0 -5Z`}
+            fill={t.wash} stroke={t.ink} strokeWidth={0.72} opacity={0.92}/>
+        </g>
+      ))}
+      <ellipse cx={0} cy={-4} rx={5} ry={3.5} fill={t.centerDark} opacity={0.30}/>
+    </g>
+  );
+};
+
+// ── Lavender (botanical sketch) ─────────────────────────
+const LavenderFlower = ({ t, id }: { t: FlowerTheme; id: string }) => {
+  return (
+    <g transform="translate(60 72)">
+      {/* Main stem — slightly curved */}
+      <path d={`M0 0 C${sketchOffset(1,2)} -20 ${sketchOffset(2,2)} -40 ${sketchOffset(3,1.5)} -60`}
+        stroke={t.ink} strokeWidth={1.8} fill="none" strokeLinecap="round"/>
+      {/* Two sub-stems */}
+      <path d={`M${sketchOffset(3,1)} -38 C${-6+sketchOffset(4,1)} -46 ${-9+sketchOffset(5,1)} -54 ${-8+sketchOffset(6,1)} -58`}
+        stroke={t.ink} strokeWidth={1.1} fill="none" strokeLinecap="round"/>
+      <path d={`M${sketchOffset(3,1)} -38 C${6+sketchOffset(4,1)} -46 ${9+sketchOffset(5,1)} -54 ${8+sketchOffset(6,1)} -58`}
+        stroke={t.ink} strokeWidth={1.1} fill="none" strokeLinecap="round"/>
+
+      {/* Floret nodes — alternating, getting smaller toward tip */}
+      {[54, 46, 38, 30, 22, 14].map((y, i) => (
+        <g key={i} transform={`translate(${sketchOffset(i,1.5)} ${-y})`}>
+          {/* Left floret */}
+          <path d={`M0 0 C-${7+sketchOffset(i,1)} -${2+sketchOffset(i,0.8)} -${9+sketchOffset(i,1)} -${8+sketchOffset(i,1)} -${6+sketchOffset(i,0.8)} -${10+sketchOffset(i,0.8)} C-${2} -${12+sketchOffset(i,0.8)} 0 -${9+sketchOffset(i,0.6)} 0 -${5+sketchOffset(i,0.5)}Z`}
+            fill={t.wash} stroke={t.ink} strokeWidth={0.5} opacity={0.86}/>
+          {/* Right floret */}
+          <path d={`M0 0 C${7+sketchOffset(i+3,1)} -${2+sketchOffset(i+3,0.8)} ${9+sketchOffset(i+3,1)} -${8+sketchOffset(i+3,1)} ${6+sketchOffset(i+3,0.8)} -${10+sketchOffset(i+3,0.8)} C${2} -${12+sketchOffset(i+3,0.8)} 0 -${9+sketchOffset(i+3,0.6)} 0 -${5+sketchOffset(i+3,0.5)}Z`}
+            fill={t.wash} stroke={t.ink} strokeWidth={0.5} opacity={0.86}/>
+          {/* Central bud */}
+          <ellipse cx={sketchOffset(i*2,0.8)} cy={-(8 + i*0.4)} rx={2.2 - i*0.18} ry={3.6 - i*0.28}
+            fill={t.petalDark} stroke={t.ink} strokeWidth={0.42} opacity={0.9}/>
+        </g>
+      ))}
+      {/* Tip bud */}
+      <ellipse cx={sketchOffset(7,1)} cy={-63} rx={1.8} ry={3.2}
+        fill={t.centerDark} stroke={t.ink} strokeWidth={0.42} opacity={0.92}/>
+
+      {/* Sub-stem florets */}
+      {[[-8,-54],[-7,-50],[8,-54],[7,-50]].map(([x,y],i)=>(
+        <ellipse key={i} cx={x+sketchOffset(i+10,1)} cy={y} rx={1.8} ry={2.8}
+          fill={t.wash} stroke={t.ink} strokeWidth={0.4} opacity={0.82}/>
+      ))}
+    </g>
+  );
+};
+
+// ── Shared render helper ────────────────────────────────
+const renderFlowerG = (t: FlowerTheme, id: string) => {
+  switch (t.type) {
+    case "rose":      return <RoseFlower t={t} id={id}/>;
+    case "dahlia":    return <DahliaFlower t={t} id={id}/>;
+    case "anemone":   return <AnemoneFlower t={t} id={id}/>;
+    case "daisy":     return <DaisyFlower t={t} id={id}/>;
+    case "sunflower": return <SunflowerFlower t={t} id={id}/>;
+    case "lily":      return <LilyFlower t={t} id={id}/>;
+    case "tulip":     return <TulipFlower t={t} id={id}/>;
+    case "lavender":  return <LavenderFlower t={t} id={id}/>;
+    default:          return <RoseFlower t={t} id={id}/>;
+  }
+};
+
+/**
+ * InlineFlower — places flower <g> inside a parent SVG.
+ * Flower artwork is centred at (60,60) in 120×120 local space.
+ * Use translate(cx,cy) scale(s) to position in parent coordinates.
+ */
+export const InlineFlower = ({
+  theme, cx, cy, scale = 1, rotate = 0, idSuffix = "0",
+}: {
+  theme: string; cx: number; cy: number;
+  scale?: number; rotate?: number; idSuffix?: string;
+}) => {
+  const t = getTheme(theme);
+  const id = `${theme}-${idSuffix}`;
+  return (
+    <g transform={`translate(${cx} ${cy}) rotate(${rotate}) scale(${scale}) translate(-60 -60)`}>
+      {renderFlowerG(t, id)}
+    </g>
+  );
+};
+
+// ── Standalone FlowerEmoji component ───────────────────
+const FlowerEmoji = ({
+  theme, size = 72, className = "", idSuffix = "0",
+}: {
+  theme: string; size?: number; className?: string; idSuffix?: string;
+}) => {
+  const t = getTheme(theme);
+  const id = `${theme}-${idSuffix}`;
+  return (
+    <svg width={size} height={size} viewBox="0 0 120 120"
+      role="img" aria-label={t.name}
+      className={`animate-bloom inline-block ${className}`}>
+      {renderFlowerG(t, id)}
+    </svg>
+  );
+};
+
+export default FlowerEmoji;

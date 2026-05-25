@@ -123,7 +123,7 @@ const CreateBouquet = () => {
     <div className="min-h-screen bg-background px-4 py-8">
       <div className="mx-auto w-full max-w-3xl">
         <Link to="/" className="mb-7 inline-flex">
-          <h1 className="font-display text-3xl md:text-4xl font-bold italic text-foreground">Digibouquet</h1>
+          <h1 className="font-display text-3xl md:text-4xl font-bold italic text-foreground">Loved Ones</h1>
         </Link>
 
         {step === 1 && (
@@ -188,7 +188,7 @@ const CreateBouquet = () => {
         {step === 2 && (
           <section className="animate-text-reveal">
             <h2 className="font-mono-upper text-center text-xs tracking-widest text-muted-foreground mb-2">Bouquet formation</h2>
-            <p className="text-center font-body text-foreground mb-6">Balanced layout with layered overlap and natural depth.</p>
+            <p className="text-center font-body text-foreground mb-6">Customize Bouquet</p>
 
             <div className="border border-border bg-card p-5 md:p-7">
               <BouquetArrangement flowers={countToFlowerKeys(selectedFlowers)} size="lg" layoutSeed={layoutSeed} greeneryStyle={greeneryStyle} />

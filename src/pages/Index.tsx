@@ -10,12 +10,12 @@ const Index = () => {
 
       {/* Title */}
       <h1 className="font-display text-5xl md:text-7xl lg:text-8xl font-bold text-foreground italic tracking-tight animate-text-reveal">
-        Digibouquet
+        Loved Ones
       </h1>
 
       {/* Subtitle */}
       <p className="font-mono-upper text-sm md:text-base text-muted-foreground mt-6 text-center animate-text-reveal animation-delay-200 opacity-0">
-        Beautiful flowers<br />delivered digitally
+        Beautiful flowers<br />delivered digital bonquet to your loved ones
       </p>
 
       {/* CTA Buttons */}
